@@ -40,20 +40,20 @@ public class ProdutoService {
     public List<ProdutoDTO> listar(Integer categoriaId, Integer usuarioId) {
         List<Produto> produtos;
         if (categoriaId != null && usuarioId != null) {
-            produtos = repository.findByCategoria_IdAndUsuario_Id(categoriaId, usuarioId);
+            produtos = repository.findByCategoria_IdAndUsuario_IdAndStatusProduto(categoriaId, usuarioId, "ATIVO");
         } else if (categoriaId != null) {
-            produtos = repository.findByCategoria_Id(categoriaId);
+            produtos = repository.findByCategoria_IdAndStatusProduto(categoriaId, "ATIVO");
         } else if (usuarioId != null) {
-            produtos = repository.findByUsuario_Id(usuarioId);
+            produtos = repository.findByUsuario_IdAndStatusProduto(usuarioId, "ATIVO");
         } else {
-            produtos = repository.findAll();
+            produtos = repository.findByStatusProduto("ATIVO");
         }
         return produtos.stream().map(this::toDTO).toList();
     }
 
     @Transactional(readOnly = true)
     public ProdutoDTO buscarPorId(Integer id) {
-        return toDTO(findById(id));
+        return toDTO(findActiveById(id));
     }
 
     public ProdutoDTO criar(ProdutoDTO dto) {
@@ -150,12 +150,21 @@ public class ProdutoService {
 
     public void deletar(Integer id) {
         Produto produto = findById(id);
-        repository.delete(produto);
+        produto.setStatusProduto("INATIVO");
+        repository.save(produto);
     }
 
     public Produto findById(Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto nao encontrado: " + id));
+    }
+
+    private Produto findActiveById(Integer id) {
+        Produto produto = findById(id);
+        if (!"ATIVO".equals(produto.getStatusProduto())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto nao encontrado: " + id);
+        }
+        return produto;
     }
 
     public ProdutoDTO toDTO(Produto p) {

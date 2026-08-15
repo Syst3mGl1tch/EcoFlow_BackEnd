@@ -52,12 +52,12 @@ public class UsuarioService implements UserDetailsService {
 
     @Transactional(readOnly = true)
     public List<UsuarioDTO> listarTodos() {
-        return repository.findAll().stream().map(this::toDTO).toList();
+        return repository.findByStatusUsuario("ATIVO").stream().map(this::toDTO).toList();
     }
 
     @Transactional(readOnly = true)
     public UsuarioDTO buscarPorId(Integer id) {
-        return toDTO(findById(id));
+        return toDTO(findActiveById(id));
     }
 
     public UsuarioDTO criar(CreateUsuarioDTO dto) {
@@ -140,12 +140,22 @@ public class UsuarioService implements UserDetailsService {
 
     public void deletar(Integer id) {
         Usuario usuario = findById(id);
-        repository.delete(usuario);
+        usuario.setStatusUsuario("INATIVO");
+        usuario.setDataAtualizacao(LocalDateTime.now());
+        repository.save(usuario);
     }
 
     public Usuario findById(Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario nao encontrado: " + id));
+    }
+
+    private Usuario findActiveById(Integer id) {
+        Usuario usuario = findById(id);
+        if (!"ATIVO".equals(usuario.getStatusUsuario())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario nao encontrado: " + id);
+        }
+        return usuario;
     }
 
     public UsuarioDTO toDTO(Usuario usuario) {
