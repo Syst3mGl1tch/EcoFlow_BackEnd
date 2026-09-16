@@ -48,7 +48,7 @@ public class UsuarioController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{id}/foto")
+    @PutMapping("/{id}/foto")
     public ResponseEntity<Void> salvarFoto(@PathVariable Integer id, @RequestParam("foto") MultipartFile foto) {
         service.salvarFoto(id, foto);
         return ResponseEntity.noContent().build();

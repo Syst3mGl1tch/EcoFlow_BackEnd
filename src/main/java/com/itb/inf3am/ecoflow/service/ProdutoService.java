@@ -113,12 +113,9 @@ public class ProdutoService {
     }
 
     public void salvarFoto(Integer id, MultipartFile foto) {
-        if (foto == null || foto.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Foto obrigatoria");
-        }
         Produto produto = findById(id);
         try {
-            produto.setFoto(foto.getBytes());
+            produto.setFoto(validarImagem(foto));
             repository.save(produto);
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao processar foto");
@@ -136,16 +133,16 @@ public class ProdutoService {
 
     @Transactional(readOnly = true)
     public MediaType detectarTipoImagem(byte[] foto) {
-        if (foto.length >= 4 && foto[0] == (byte) 0x89 && foto[1] == 0x50 && foto[2] == 0x4E && foto[3] == 0x47) {
+        if (ehPng(foto)) {
             return MediaType.IMAGE_PNG;
         }
-        if (foto.length >= 3 && (foto[0] & 0xFF) == 0xFF && (foto[1] & 0xFF) == 0xD8) {
+        if (ehJpeg(foto)) {
             return MediaType.IMAGE_JPEG;
         }
-        if (foto.length >= 12 && foto[0] == 'R' && foto[1] == 'I' && foto[2] == 'F' && foto[3] == 'F') {
+        if (ehWebp(foto)) {
             return MediaType.parseMediaType("image/webp");
         }
-        return MediaType.IMAGE_JPEG;
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Formato de foto nao reconhecido");
     }
 
     public void deletar(Integer id) {
@@ -196,5 +193,43 @@ public class ProdutoService {
 
     private String normalizarOpcional(String valor) {
         return valor == null || valor.trim().isEmpty() ? null : valor.trim();
+    }
+
+    private byte[] validarImagem(MultipartFile foto) throws IOException {
+        if (foto == null || foto.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Foto obrigatoria");
+        }
+        if (foto.getSize() > 1024 * 1024) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A foto deve ter no maximo 1 MB");
+        }
+
+        String tipo = foto.getContentType();
+        if (!MediaType.IMAGE_JPEG_VALUE.equals(tipo) && !MediaType.IMAGE_PNG_VALUE.equals(tipo)
+                && !"image/webp".equals(tipo)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de imagem invalido");
+        }
+
+        byte[] dados = foto.getBytes();
+        boolean correspondeAoTipo = (MediaType.IMAGE_JPEG_VALUE.equals(tipo) && ehJpeg(dados))
+                || (MediaType.IMAGE_PNG_VALUE.equals(tipo) && ehPng(dados))
+                || ("image/webp".equals(tipo) && ehWebp(dados));
+        if (!correspondeAoTipo) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Conteudo da imagem invalido");
+        }
+        return dados;
+    }
+
+    private boolean ehJpeg(byte[] foto) {
+        return foto.length >= 3 && (foto[0] & 0xFF) == 0xFF && (foto[1] & 0xFF) == 0xD8 && (foto[2] & 0xFF) == 0xFF;
+    }
+
+    private boolean ehPng(byte[] foto) {
+        return foto.length >= 8 && foto[0] == (byte) 0x89 && foto[1] == 0x50 && foto[2] == 0x4E && foto[3] == 0x47
+                && foto[4] == 0x0D && foto[5] == 0x0A && foto[6] == 0x1A && foto[7] == 0x0A;
+    }
+
+    private boolean ehWebp(byte[] foto) {
+        return foto.length >= 12 && foto[0] == 'R' && foto[1] == 'I' && foto[2] == 'F' && foto[3] == 'F'
+                && foto[8] == 'W' && foto[9] == 'E' && foto[10] == 'B' && foto[11] == 'P';
     }
 }

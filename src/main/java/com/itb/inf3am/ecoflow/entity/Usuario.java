@@ -28,6 +28,7 @@ public class Usuario {
     private String nivelAcesso;
 
     @JsonIgnore
+    @Lob
     @Column(columnDefinition = "VARBINARY(MAX)")
     private byte[] foto;
 
